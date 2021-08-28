@@ -4,8 +4,8 @@ type Promise struct {
 	State     int
 	data      interface{}
 	fn        func(func(interface{}), func(interface{}))
-	resolveFn func(interface{}) interface{}
-	rejectFn  func(interface{}) interface{}
+	resolveFn func(interface{})
+	rejectFn  func(interface{})
 }
 
 func NewPromise(fn func(resolve, reject func(interface{}))) *Promise {
@@ -57,19 +57,19 @@ func (promise *Promise) reject(data interface{}) {
 	}
 }
 
-func (promise *Promise) Then(resolveFn func(interface{}) interface{}, rejectFns ...func(interface{}) interface{}) interface{} {
-	var rejectFn func(interface{}) interface{}
-	switch len(rejectFns) {
+func (promise *Promise) Then(resolveFn func(interface{}), fns ...func(interface{})) {
+	var rejectFn func(interface{})
+	switch len(fns) {
 	case 1:
-		rejectFn = rejectFns[0]
+		rejectFn = fns[0]
 	case 0:
-		rejectFn = func(interface{}) interface{} { return nil }
+		rejectFn = func(interface{}) {}
 	default:
-		panic("Too many reject functions")
+		panic("Too many functions")
 	}
 
 	if promise.State == DISCARD {
-		return nil
+		return
 	}
 
 	promise.resolveFn = resolveFn
@@ -77,11 +77,9 @@ func (promise *Promise) Then(resolveFn func(interface{}) interface{}, rejectFns 
 
 	if promise.State == RESOLVED {
 		promise.State = DISCARD
-		return resolveFn(promise.data)
+		go resolveFn(promise.data)
 	} else if promise.State == REJECTED {
 		promise.State = DISCARD
-		return rejectFn(promise.data)
+		go rejectFn(promise.data)
 	}
-
-	return nil
 }
